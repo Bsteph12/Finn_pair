@@ -1,40 +1,50 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
-const { Boom } = require('@hapi/boom');
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion
+} = require('@whiskeysockets/baileys');
 const path = require('path');
 const fs = require('fs');
-const P = require('pino');
+const pino = require('pino');
 const { sendCredsToUser } = require('./utils');
 
 async function connectToWhatsApp(number) {
-    const sessionFolder = path.resolve(__dirname, 'sessions', number);
-    fs.mkdirSync(sessionFolder, { recursive: true });
-    const { state, saveCreds } = await useMultiFileAuthState(sessionFolder);
+  const sessionPath = path.resolve(__dirname, 'sessions', number);
+  fs.mkdirSync(sessionPath, { recursive: true });
 
-    const sock = makeWASocket({
-        auth: state,
-        printQRInTerminal: false,
-        logger: P({ level: 'silent' }),
-        browser: ['Pairing Site', 'Chrome', '1.0.0'],
-    });
+  const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+  const { version } = await fetchLatestBaileysVersion();
 
-    sock.ev.on('creds.update', saveCreds);
+  const sock = makeWASocket({
+    version,
+    auth: state,
+    printQRInTerminal: false,
+    browser: ['Ubuntu', 'Chrome', '20.0.04'],
+    logger: pino({ level: 'silent' })
+  });
 
-    sock.ev.on('connection.update', async (update) => {
-        const { connection, lastDisconnect, qr } = update;
-        if (qr) {
-            global.qrCodes[number] = qr;
-        }
+  sock.ev.on('creds.update', saveCreds);
 
-        if (connection === 'close') {
-            const shouldReconnect = (lastDisconnect.error = new Boom(lastDisconnect?.error))?.output?.statusCode !== DisconnectReason.loggedOut;
-            if (shouldReconnect) connectToWhatsApp(number);
-        } else if (connection === 'open') {
-            console.log('✅ CONNECTED: ' + number);
-            const credsPath = path.join(sessionFolder, 'creds.json');
-            const creds = fs.readFileSync(credsPath);
-            await sendCredsToUser(sock, number, creds);
-        }
-    });
+  // Exactement comme dans index.js : génération de code de pairage
+  if (!sock.authState.creds.registered) {
+    try {
+      let code = await sock.requestPairingCode(number + "@s.whatsapp.net");
+      code = code.match(/.{1,4}/g).join("-");
+      console.log("🔗 Code de pairage :", code);
+      global.pairCodes[number] = code;
+    } catch (err) {
+      console.error("❌ Erreur de génération de code :", err);
+    }
+  }
+
+  sock.ev.on('connection.update', async ({ connection }) => {
+    if (connection === 'open') {
+      console.log("✅ CONNECTÉ : " + number);
+      const credsPath = path.join(sessionPath, 'creds.json');
+      const creds = fs.readFileSync(credsPath);
+      await sendCredsToUser(sock, number, creds);
+    }
+  });
 }
 
-module.exports = { connectToWhatsApp };
+module.exports = { connectToWhatsApp }; 
