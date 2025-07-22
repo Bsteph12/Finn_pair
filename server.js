@@ -27,7 +27,7 @@ app.post('/pair', async (req, res) => {
   setTimeout(() => {
     const code = global.pairCodes[number] || null;
     res.render('index', { code, number });
-  }, 2000);
+  }, 3000);
 });
 
 app.listen(port, () => console.log(`🌐 Serveur lancé sur http://localhost:${port}`));
