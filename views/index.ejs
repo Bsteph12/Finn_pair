@@ -1,19 +1,20 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Pairage WhatsApp</title>
+    <title>Pairage WhatsApp (code)</title>
 </head>
 <body>
-    <h2>🤖 Pairage WhatsApp</h2>
+    <h2>🤖 Lier votre numéro WhatsApp</h2>
     <form method="POST" action="/pair">
-        <label>Numéro WhatsApp (ex: 2376XXXXXXXX):</label>
+        <label>Numéro WhatsApp (ex: 2376XXXXXXX) :</label>
         <input type="text" name="number" required />
-        <button type="submit">Générer code</button>
+        <button type="submit">Obtenir le code</button>
     </form>
 
-    <% if (qr) { %>
-        <h3>Code pour <%= number %></h3>
-        <img src="https://api.qrserver.com/v1/create-qr-code/?data=<%= qr %>&size=250x250" />
+    <% if (code) { %>
+        <h3>Votre code de pairage :</h3>
+        <p style="font-size: 22px; font-weight: bold;"><%= code %></p>
+        <p>👉 Allez dans WhatsApp → Appareils liés → Associer un appareil → “Entrer le code”</p>
     <% } %>
 </body>
 </html>
