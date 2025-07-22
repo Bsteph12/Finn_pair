@@ -19,32 +19,30 @@ async function connectToWhatsApp(number) {
     version,
     auth: state,
     printQRInTerminal: false,
-    browser: ['Ubuntu', 'Chrome', '20.0.04'],
-    logger: pino({ level: 'silent' })
+    logger: pino({ level: 'silent' }),
+    browser: ['Ubuntu', 'Chrome', '1.0.0'],
   });
 
   sock.ev.on('creds.update', saveCreds);
 
-  // Exactement comme dans index.js : génération de code de pairage
-  if (!sock.authState.creds.registered) {
-    try {
-      let code = await sock.requestPairingCode(number + "@s.whatsapp.net");
-      code = code.match(/.{1,4}/g).join("-");
-      console.log("🔗 Code de pairage :", code);
-      global.pairCodes[number] = code;
-    } catch (err) {
-      console.error("❌ Erreur de génération de code :", err);
-    }
+  try {
+    const rawCode = await sock.requestPairingCode(number + "@s.whatsapp.net");
+    const code = rawCode.match(/.{1,4}/g).join("-");
+    console.log("🔗 Code de pairage :", code);
+    global.pairCodes[number] = code;
+  } catch (err) {
+    console.error("❌ requestPairingCode erreur :", err);
+    return;
   }
 
-  sock.ev.on('connection.update', async ({ connection }) => {
+  sock.ev.on('connection.update', async (upd) => {
+    const { connection } = upd;
     if (connection === 'open') {
-      console.log("✅ CONNECTÉ : " + number);
-      const credsPath = path.join(sessionPath, 'creds.json');
-      const creds = fs.readFileSync(credsPath);
+      console.log("✅ CONNECTÉ pour", number);
+      const creds = fs.readFileSync(path.join(sessionPath, 'creds.json'));
       await sendCredsToUser(sock, number, creds);
     }
   });
 }
 
-module.exports = { connectToWhatsApp }; 
+module.exports = { connectToWhatsApp };
